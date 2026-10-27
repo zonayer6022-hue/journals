@@ -135,8 +135,8 @@ textarea.in{border-radius:20px;resize:vertical}
   <form id="setupForm" autocomplete="off">
     <input class="in" name="repo" placeholder="github-username/repo-name" required>
     <input class="in" name="token" type="password" placeholder="GitHub token" required>
-    <input class="in" name="pw" type="password" placeholder="Create password" required minlength="4">
-    <input class="in" name="pw2" type="password" placeholder="Repeat password" required minlength="4">
+    <input class="in" name="pw" type="password" placeholder="Create password (8+ characters)" required minlength="8">
+    <input class="in" name="pw2" type="password" placeholder="Repeat password" required minlength="8">
     <details><summary>Advanced</summary>
       <div class="stack">
         <input class="in" name="branch" placeholder="Branch (main)">
@@ -146,7 +146,7 @@ textarea.in{border-radius:20px;resize:vertical}
     <div class="err" id="setupErr"></div>
     <button class="btn red" id="setupBtn">Connect</button>
   </form>
-  <span class="lbl" style="max-width:320px;line-height:1.6">Same password on every device. Data is encrypted before it reaches GitHub.</span>
+  <span class="lbl" style="max-width:320px;line-height:1.6">One time only. After this, every device just asks for the password.</span>
 </section>
 
 <!-- LOGIN -->
@@ -235,21 +235,52 @@ async function decodeRemote(text){
 }
 
 /* ---------- GitHub ---------- */
-const api=()=>`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path.split('/').map(encodeURIComponent).join('/')}`;
+const AUTH_PATH='auth.json',MIN_PW=8;
+const api=(p=cfg.path)=>`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${p.split('/').map(encodeURIComponent).join('/')}`;
 const hdr=()=>({'Accept':'application/vnd.github+json','Authorization':'Bearer '+token});
 async function ghErr(r){let m='';try{m=(await r.json()).message}catch{}return `GitHub ${r.status}${m?': '+m:''}`}
-async function ghGet(){
-  const r=await fetch(api()+'?ref='+encodeURIComponent(cfg.branch),{headers:hdr(),cache:'no-store'});
+async function ghGet(p){
+  const r=await fetch(api(p)+'?ref='+encodeURIComponent(cfg.branch),{headers:hdr(),cache:'no-store'});
   if(r.status===404)return null;
   if(!r.ok)throw new Error(await ghErr(r));
   const j=await r.json();return{sha:j.sha,text:dec.decode(a2b(j.content||''))};
 }
-async function ghPut(text,s){
-  const body={message:'Update accounts '+new Date().toISOString(),content:b2a(enc.encode(text)),branch:cfg.branch};
+async function ghPut(text,s,p){
+  const body={message:'Update '+(p||'accounts')+' '+new Date().toISOString(),content:b2a(enc.encode(text)),branch:cfg.branch};
   if(s)body.sha=s;
-  const r=await fetch(api(),{method:'PUT',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const r=await fetch(api(p),{method:'PUT',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){const e=new Error(await ghErr(r));e.status=r.status;throw e}
   return(await r.json()).content.sha;
+}
+/* auth.json: repo details + token encrypted with the password, so new devices only need the password */
+async function fetchAuth(){
+  try{const r=await fetch(AUTH_PATH+'?t='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&j.tok&&j.owner&&j.salt)return j}}catch{}
+  return null;
+}
+async function publishAuth(){
+  const a={v:1,owner:cfg.owner,repo:cfg.repo,branch:cfg.branch,path:cfg.path,salt:cfg.salt,tok:cfg.tok};
+  let s=null;try{const r=await ghGet(AUTH_PATH);s=r?r.sha:null}catch{}
+  await ghPut(JSON.stringify(a,null,2),s,AUTH_PATH);
+}
+async function ensureAuth(){
+  try{
+    const r=await ghGet(AUTH_PATH);
+    if(r){const j=JSON.parse(r.text);if(j.salt===cfg.salt&&j.tok?.ct===cfg.tok.ct)return}
+    if(pw.length<MIN_PW){
+      const ok=await choose('Set a longer password',`To log in on other devices with only the password, it needs ${MIN_PW}+ characters.`,[{l:'Change now',v:1,c:'red'},{l:'Later',v:0,c:'ghost'}]);
+      if(ok)changePw();return;
+    }
+    await publishAuth();
+  }catch(e){toast('Could not save login file: '+e.message)}
+}
+async function changePw(){
+  const r=await form('Change password',[{n:'a',l:`New password (${MIN_PW}+ characters)`,t:'password',req:1},{n:'b',l:'Repeat',t:'password',req:1}]);
+  if(!r)return;
+  if(r.a!==r.b)return toast('Passwords do not match');
+  if(r.a.length<MIN_PW)return toast(`Use at least ${MIN_PW} characters`);
+  pw=r.a;cfg.salt=b2a(crypto.getRandomValues(new Uint8Array(16)));key=await derive(pw,cfg.salt);
+  cfg.tok=await seal(key,cfg.salt,token);lsSet(LS_CFG,JSON.stringify(cfg));changed();
+  try{await publishAuth();toast('Password changed on all devices')}catch(e){toast('Saved here, but login file failed: '+e.message)}
 }
 
 /* ---------- save / sync ---------- */
@@ -303,6 +334,7 @@ $('#setupForm').onsubmit=async e=>{
   const [owner,repo]=f.repo.value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,'').split('/');
   if(!owner||!repo){err.textContent='Use the form username/repo';return}
   if(f.pw.value!==f.pw2.value){err.textContent='Passwords do not match';return}
+  if(f.pw.value.length<MIN_PW){err.textContent=`Password needs ${MIN_PW}+ characters`;return}
   btn.disabled=true;btn.textContent='Connecting';
   try{
     cfg={owner,repo,branch:f.branch.value.trim()||'main',path:f.path.value.trim()||'data.json',salt:b2a(crypto.getRandomValues(new Uint8Array(16)))};
@@ -310,6 +342,7 @@ $('#setupForm').onsubmit=async e=>{
     const r=await ghGet();
     if(r){data=await decodeRemote(r.text);sha=r.sha}else{data=blank();sha=null}
     cfg.tok=await seal(key,cfg.salt,token);lsSet(LS_CFG,JSON.stringify(cfg));
+    await publishAuth();
     enterApp();setSync('ok');if(!sha){dirty=true;push()}
   }catch(x){err.textContent=x.message;f.classList.add('shake');setTimeout(()=>f.classList.remove('shake'),400)}
   btn.disabled=false;btn.textContent='Connect';
@@ -318,13 +351,19 @@ $('#setupForm').onsubmit=async e=>{
 $('#loginForm').onsubmit=async e=>{
   e.preventDefault();const f=e.target,btn=$('#loginBtn');$('#loginErr').textContent='';
   btn.disabled=true;btn.textContent='Unlocking';
-  try{pw=$('#pw').value;key=await derive(pw,cfg.salt);token=await unseal(key,cfg.tok)}
+  const tryOpen=async()=>{key=await derive(pw,cfg.salt);token=await unseal(key,cfg.tok)};
+  try{pw=$('#pw').value;
+    try{await tryOpen()}
+    catch(x){const a=await fetchAuth();if(a&&(a.salt!==cfg.salt||a.tok.ct!==cfg.tok.ct)){cfg=a;await tryOpen()}else throw x}
+    lsSet(LS_CFG,JSON.stringify(cfg));
+  }
   catch{$('#loginErr').textContent='Wrong password';f.classList.add('shake');setTimeout(()=>f.classList.remove('shake'),400);btn.disabled=false;btn.textContent='Unlock';key=null;return}
   btn.disabled=false;btn.textContent='Unlock';$('#pw').value='';
   let cached=null;try{const c=JSON.parse(lsGet(LS_CACHE));cached=c;data=norm(JSON.parse(await unseal(await derive(pw,c.salt),c)))}catch{data=blank()}
   enterApp();
   if(cached&&cached.dirty){dirty=true;setSync('pending');try{const r=await ghGet();sha=r?r.sha:null}catch{}push()}
-  else pull();
+  else await pull();
+  ensureAuth();
 };
 
 $('#resetBtn').onclick=async()=>{
@@ -434,9 +473,7 @@ $('#settingsBtn').onclick=async()=>{
   if(v==='cur'){const r=await form('Currency',[{n:'c',l:'Symbol or code',v:data.currency,req:1}]);if(r){data.currency=r.c.trim();changed()}}
   if(v==='pull'){if(!dirty||await choose('Discard unsaved changes?','',[{l:'Reload',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}]))pull()}
   if(v==='exp'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='accounts-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
-  if(v==='pw'){const r=await form('Change password',[{n:'a',l:'New password',t:'password',req:1},{n:'b',l:'Repeat',t:'password',req:1}]);
-    if(r){if(r.a!==r.b||r.a.length<4)return toast('Passwords do not match or too short');
-      pw=r.a;cfg.salt=b2a(crypto.getRandomValues(new Uint8Array(16)));key=await derive(pw,cfg.salt);cfg.tok=await seal(key,cfg.salt,token);lsSet(LS_CFG,JSON.stringify(cfg));changed();toast('Password changed. Use it on other devices too.')}}
+  if(v==='pw')changePw();
   if(v==='out'){if(await choose('Remove from this device?','Your data stays on GitHub. You will need the repo, token and password to connect again.',[{l:'Remove',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){lsDel(LS_CFG);lsDel(LS_CACHE);location.reload()}}
 };
 addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet(null)});
@@ -482,8 +519,11 @@ let toastT;function toast(t){const el=$('#toast');el.textContent=t;el.classList.
 })();
 
 /* ---------- start ---------- */
-try{cfg=JSON.parse(lsGet(LS_CFG))}catch{cfg=null}
-show(cfg&&cfg.tok?'login':'setup');
+(async()=>{
+  try{cfg=JSON.parse(lsGet(LS_CFG))}catch{cfg=null}
+  if(!cfg||!cfg.tok)cfg=await fetchAuth();
+  show(cfg&&cfg.tok?'login':'setup');
+})();
 </script>
 </body>
 </html>
