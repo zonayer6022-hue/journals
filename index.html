@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Accounts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;900&family=Space+Grotesk:wght@400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--fg:#fff;--dim:#8a8a8a;--line:#242424;--card:rgba(12,12,12,.86);--red:#d71921;--ease:cubic-bezier(.2,.8,.2,1)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 'Space Grotesk',system-ui,sans-serif}
+body{min-height:100dvh;overflow-x:hidden}
+canvas#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+button,input,textarea{font:inherit;color:inherit}
+.dotf{font-family:'Doto',monospace;font-weight:900}
+.lbl{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.rec{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.65)}}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+
+/* screens */
+.screen{position:relative;z-index:1;min-height:100dvh;display:none;opacity:0;transition:opacity .5s var(--ease)}
+.screen.show{display:block}
+.screen.in{opacity:1}
+.auth.show{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:40px 22px;text-align:center}
+.auth form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px}
+.clock{font-size:clamp(72px,24vw,128px);line-height:.85;letter-spacing:.02em}
+.brand{display:flex;align-items:center;gap:10px;justify-content:center}
+.err{color:var(--red);font-size:13px;min-height:18px}
+.shake{animation:shake .4s}
+details{text-align:left;color:var(--dim);font-size:13px}
+details summary{cursor:pointer;list-style:none;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:6px 0}
+details[open] summary{margin-bottom:8px}
+.link{background:none;border:0;color:var(--dim);font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;padding:8px}
+
+/* inputs and buttons */
+.in{width:100%;background:rgba(0,0,0,.6);border:1px solid #333;border-radius:999px;padding:13px 18px;outline:none;transition:border-color .25s}
+textarea.in{border-radius:20px;resize:vertical}
+.in:focus{border-color:var(--fg)}
+.btn{border:0;border-radius:999px;padding:13px 20px;background:var(--fg);color:#000;font-weight:600;cursor:pointer;transition:transform .15s var(--ease),opacity .2s}
+.btn:active{transform:scale(.97)}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid #333}
+.btn.red{background:var(--red);color:#fff}
+.btn:disabled{opacity:.5}
+
+/* app */
+.top{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:10px;padding:calc(14px + env(safe-area-inset-top)) 18px 14px;background:linear-gradient(#000 60%,transparent)}
+.top .title{font-size:24px;margin-right:auto}
+.sync{display:flex;align-items:center;gap:7px}
+.sd{width:8px;height:8px;border-radius:50%;background:var(--fg)}
+.sd.saving,.sd.loading,.sd.pending{background:var(--red);animation:pulse 1s ease-in-out infinite}
+.sd.err{background:var(--red)}
+.icon{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;cursor:pointer;transition:transform .15s}
+.icon:active{transform:scale(.92)}
+.wrap{max-width:720px;margin:0 auto;padding:0 18px calc(120px + env(safe-area-inset-bottom))}
+.hero{padding:14px 0 4px}
+.hero .big{font-size:clamp(48px,15vw,84px);line-height:1;word-break:break-all}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 22px}
+.stat{border:1px solid var(--line);border-radius:18px;padding:12px;background:var(--card);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.stat .v{font-family:'Space Mono',monospace;font-size:13px;margin-top:4px;word-break:break-word}
+.search{margin-bottom:14px}
+.card{border:1px solid var(--line);border-radius:26px;background:var(--card);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin-bottom:12px;overflow:hidden;transition:border-color .3s}
+.card.rise{animation:rise .55s var(--ease) both}
+.card.open{border-color:#444}
+.chead{padding:18px;cursor:pointer;user-select:none}
+.crow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.cname{font-size:18px;font-weight:600}
+.cleft{font-family:'Space Mono',monospace;font-size:12px;text-align:right}
+.dots{display:flex;gap:4px;margin-top:14px}
+.dots i{flex:1;height:6px;border-radius:3px;background:#222;transition:background .5s}
+.dots i.f{background:var(--fg)}
+.cbody{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease)}
+.card.open .cbody{grid-template-rows:1fr}
+.cbody>div{overflow:hidden}
+.inner{padding:0 18px 18px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:4px 0 10px}
+.kv b{display:block;font-family:'Space Mono',monospace;font-size:13px;font-weight:400;margin-top:2px}
+.pnote{color:var(--dim);font-size:13px;margin:0 0 8px}
+.warn{color:var(--red);font-size:12px;font-family:'Space Mono',monospace;margin:0 0 8px}
+.member{border-top:1px solid var(--line);padding:14px 0}
+.due{color:var(--red);font-family:'Space Mono',monospace;font-size:13px}
+.over{color:#f5b942;font-family:'Space Mono',monospace;font-size:13px}
+.settled{font-family:'Space Mono',monospace;font-size:13px}
+.pays{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.pay{display:flex;gap:10px;align-items:center;font-family:'Space Mono',monospace;font-size:12px;color:var(--dim)}
+.pay .pn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x{background:none;border:0;color:var(--dim);font-size:16px;cursor:pointer;padding:0 6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{border:1px solid #333;background:transparent;border-radius:999px;padding:7px 13px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:transform .15s,background .2s}
+.chip:active{transform:scale(.95)}
+.chip.red{border-color:var(--red);color:#fff;background:var(--red)}
+.chip.dim{color:var(--dim)}
+.empty{text-align:center;padding:60px 0;color:var(--dim)}
+.fab{position:fixed;z-index:4;right:20px;bottom:calc(22px + env(safe-area-inset-bottom));width:62px;height:62px;border-radius:50%;border:0;background:var(--red);color:#fff;font-size:30px;line-height:1;cursor:pointer;box-shadow:0 8px 30px rgba(215,25,33,.35);transition:transform .2s var(--ease)}
+.fab:active{transform:scale(.9) rotate(90deg)}
+
+/* sheet */
+.sheet-bg{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.65);opacity:0;pointer-events:none;transition:opacity .3s}
+.sheet-bg.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;z-index:11;left:0;right:0;bottom:0;margin:0 auto;max-width:520px;max-height:90dvh;overflow:auto;background:#0e0e0e;border:1px solid var(--line);border-bottom:0;border-radius:30px 30px 0 0;padding:10px 20px calc(22px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .4s var(--ease)}
+.sheet.on{transform:none}
+.grab{width:40px;height:4px;border-radius:2px;background:#333;margin:4px auto 16px}
+.sheet h3{margin:0 0 14px;font-size:20px;font-weight:600}
+.sheet p{color:var(--dim);margin:0 0 16px}
+.fl{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.fl .lbl{padding-left:6px}
+.check{display:flex;align-items:center;gap:10px;margin:4px 0 14px;cursor:pointer;font-size:14px}
+.check input{position:absolute;opacity:0}
+.check span{width:22px;height:22px;border-radius:50%;border:1px solid #444;display:grid;place-items:center;transition:background .2s}
+.check input:checked+span{background:var(--red);border-color:var(--red)}
+.check input:checked+span::after{content:'';width:6px;height:6px;border-radius:50%;background:#fff}
+.srow{display:flex;gap:8px;margin-top:8px}
+.srow .btn{flex:1}
+.stack{display:flex;flex-direction:column;gap:8px}
+@media(min-width:620px){
+ .sheet{bottom:auto;top:50%;border-radius:30px;border-bottom:1px solid var(--line);opacity:0;transform:translateY(-46%) scale(.97);transition:transform .3s var(--ease),opacity .3s}
+ .sheet.on{opacity:1;transform:translateY(-50%)}
+ .grab{display:none}
+}
+.toast{position:fixed;z-index:20;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:var(--fg);color:#000;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .35s var(--ease);max-width:calc(100vw - 40px);text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+<!-- SETUP (first time on this device) -->
+<section id="setup" class="screen auth">
+  <div class="brand"><span class="rec"></span><span class="lbl">First setup</span></div>
+  <div class="dotf" style="font-size:44px;line-height:1">ACCOUNTS</div>
+  <form id="setupForm" autocomplete="off">
+    <input class="in" name="repo" placeholder="github-username/repo-name" required>
+    <input class="in" name="token" type="password" placeholder="GitHub token" required>
+    <input class="in" name="pw" type="password" placeholder="Create password" required minlength="4">
+    <input class="in" name="pw2" type="password" placeholder="Repeat password" required minlength="4">
+    <details><summary>Advanced</summary>
+      <div class="stack">
+        <input class="in" name="branch" placeholder="Branch (main)">
+        <input class="in" name="path" placeholder="File path (data.json)">
+      </div>
+    </details>
+    <div class="err" id="setupErr"></div>
+    <button class="btn red" id="setupBtn">Connect</button>
+  </form>
+  <span class="lbl" style="max-width:320px;line-height:1.6">Same password on every device. Data is encrypted before it reaches GitHub.</span>
+</section>
+
+<!-- LOGIN -->
+<section id="login" class="screen auth">
+  <div class="brand"><span class="rec"></span><span class="lbl" id="ldate"></span></div>
+  <div class="clock dotf" id="clock">00:00</div>
+  <form id="loginForm" autocomplete="off">
+    <input class="in" id="pw" type="password" placeholder="Password" required style="text-align:center">
+    <div class="err" id="loginErr"></div>
+    <button class="btn" id="loginBtn">Unlock</button>
+  </form>
+  <button class="link" id="resetBtn">Use a different repo</button>
+</section>
+
+<!-- APP -->
+<section id="app" class="screen">
+  <header class="top">
+    <div class="title dotf">ACCOUNTS</div>
+    <div class="sync"><span class="sd" id="sync"></span><span class="lbl" id="synctxt">Synced</span></div>
+    <button class="icon" id="settingsBtn" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="3.5" r="1.2" fill="currentColor"/><circle cx="12" cy="20.5" r="1.2" fill="currentColor"/><circle cx="3.5" cy="12" r="1.2" fill="currentColor"/><circle cx="20.5" cy="12" r="1.2" fill="currentColor"/></svg></button>
+    <button class="icon" id="lockBtn" aria-label="Lock"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="11" width="16" height="10" rx="3"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
+  </header>
+  <main class="wrap">
+    <div class="hero">
+      <div class="lbl">Remaining <span id="cur"></span></div>
+      <div class="big dotf" id="hero">0</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="lbl">Total cost</div><div class="v" id="s1">0</div></div>
+      <div class="stat"><div class="lbl">Collected</div><div class="v" id="s2">0</div></div>
+      <div class="stat"><div class="lbl">Owed to you</div><div class="v" id="s3">0</div></div>
+    </div>
+    <input class="in search" id="search" placeholder="Search projects or people">
+    <div id="list"></div>
+  </main>
+  <button class="fab" id="fab" aria-label="New project">+</button>
+</section>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const enc=new TextEncoder(),dec=new TextDecoder();
+const LS_CFG='nx_acc_cfg',LS_CACHE='nx_acc_cache';
+let cfg=null,key=null,pw='',token='',data=null,sha=null,dirty=false;
+let saveTimer=null,saving=false,again=false,firstPaint=true;
+const openSet=new Set(),keyCache={};
+
+/* ---------- helpers ---------- */
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const num=v=>{const n=parseFloat(String(v).replace(/,/g,''));return isFinite(n)?n:0};
+const r2=n=>Math.round(n*100)/100;
+const fmt=n=>r2(n).toLocaleString('en-US',{maximumFractionDigits:2});
+const money=n=>(data?.currency||'৳')+' '+fmt(n);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const lsGet=k=>{try{return localStorage.getItem(k)}catch{return null}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch{}};
+const lsDel=k=>{try{localStorage.removeItem(k)}catch{}};
+const blank=()=>({currency:'৳',projects:[]});
+function norm(d){
+  d=d&&typeof d==='object'?d:blank();
+  d.currency=d.currency||'৳';
+  d.projects=Array.isArray(d.projects)?d.projects:[];
+  d.projects.forEach(p=>{p.id=p.id||uid();p.members=Array.isArray(p.members)?p.members:[];
+    p.members.forEach(m=>{m.id=m.id||uid();m.payments=Array.isArray(m.payments)?m.payments:[];m.payments.forEach(x=>x.id=x.id||uid())})});
+  return d;
+}
+
+/* ---------- crypto ---------- */
+const b2a=b=>{const u=new Uint8Array(b);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
+const a2b=s=>Uint8Array.from(atob(s.replace(/\s/g,'')),c=>c.charCodeAt(0));
+async function derive(pass,salt){
+  const k=pass+'|'+salt;if(keyCache[k])return keyCache[k];
+  const base=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveKey']);
+  return keyCache[k]=await crypto.subtle.deriveKey({name:'PBKDF2',salt:a2b(salt),iterations:200000,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function seal(k,salt,str){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,enc.encode(str));return{v:1,salt,iv:b2a(iv),ct:b2a(ct)}}
+async function unseal(k,blob){return dec.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:a2b(blob.iv)},k,a2b(blob.ct)))}
+async function decodeRemote(text){
+  let j;try{j=JSON.parse(text)}catch{throw new Error('Data file is not valid JSON')}
+  if(j&&j.ct){try{return norm(JSON.parse(await unseal(await derive(pw,j.salt),j)))}catch{throw new Error('Password does not match the data in this repo')}}
+  return norm(j);
+}
+
+/* ---------- GitHub ---------- */
+const api=()=>`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path.split('/').map(encodeURIComponent).join('/')}`;
+const hdr=()=>({'Accept':'application/vnd.github+json','Authorization':'Bearer '+token});
+async function ghErr(r){let m='';try{m=(await r.json()).message}catch{}return `GitHub ${r.status}${m?': '+m:''}`}
+async function ghGet(){
+  const r=await fetch(api()+'?ref='+encodeURIComponent(cfg.branch),{headers:hdr(),cache:'no-store'});
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error(await ghErr(r));
+  const j=await r.json();return{sha:j.sha,text:dec.decode(a2b(j.content||''))};
+}
+async function ghPut(text,s){
+  const body={message:'Update accounts '+new Date().toISOString(),content:b2a(enc.encode(text)),branch:cfg.branch};
+  if(s)body.sha=s;
+  const r=await fetch(api(),{method:'PUT',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){const e=new Error(await ghErr(r));e.status=r.status;throw e}
+  return(await r.json()).content.sha;
+}
+
+/* ---------- save / sync ---------- */
+function setSync(s,txt){$('#sync').className='sd '+s;$('#synctxt').textContent=txt||{ok:'Synced',saving:'Saving',pending:'Unsaved',loading:'Loading',err:'Error'}[s]}
+async function cacheLocal(){if(!key)return;const b=await seal(key,cfg.salt,JSON.stringify(data));lsSet(LS_CACHE,JSON.stringify({...b,dirty}))}
+function changed(){
+  data.updated=new Date().toISOString();dirty=true;cacheLocal();render();setSync('pending');
+  clearTimeout(saveTimer);saveTimer=setTimeout(push,1200);
+}
+async function push(){
+  if(saving){again=true;return}
+  saving=true;setSync('saving');
+  try{
+    const blob=await seal(key,cfg.salt,JSON.stringify(data));
+    sha=await ghPut(JSON.stringify(blob),sha);
+    dirty=false;cacheLocal();setSync('ok');
+  }catch(e){
+    if(e.status===409||e.status===422){setSync('err','Conflict');saving=false;return conflict()}
+    setSync('err','Offline');toast(e.message+'. Retrying soon.');
+    clearTimeout(saveTimer);saveTimer=setTimeout(push,8000);
+  }
+  saving=false;if(again){again=false;push()}
+}
+async function pull(){
+  setSync('loading');
+  try{const r=await ghGet();if(r){data=await decodeRemote(r.text);sha=r.sha}else{sha=null}dirty=false;cacheLocal();render();setSync('ok')}
+  catch(e){setSync('err');toast(e.message)}
+}
+async function conflict(){
+  const v=await choose('Changed elsewhere','The file on GitHub was updated from another device after this one loaded it.',
+    [{l:'Keep this device',v:'mine',c:'red'},{l:'Load GitHub version',v:'theirs',c:'ghost'}]);
+  if(v==='theirs'){await pull();toast('Loaded latest from GitHub')}
+  else{try{const r=await ghGet();sha=r?r.sha:null}catch{}push()}
+}
+
+/* ---------- screens ---------- */
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show','in'));
+  const s=$('#'+id);s.classList.add('show');requestAnimationFrame(()=>requestAnimationFrame(()=>s.classList.add('in')));
+}
+function tick(){
+  const d=new Date();
+  $('#clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  $('#ldate').textContent=d.toLocaleDateString('en-US',{weekday:'short',day:'2-digit',month:'short'});
+}
+setInterval(tick,1000);tick();
+
+$('#setupForm').onsubmit=async e=>{
+  e.preventDefault();const f=e.target,err=$('#setupErr'),btn=$('#setupBtn');err.textContent='';
+  if(!window.crypto?.subtle){err.textContent='Open this page over https (GitHub Pages).';return}
+  const [owner,repo]=f.repo.value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,'').split('/');
+  if(!owner||!repo){err.textContent='Use the form username/repo';return}
+  if(f.pw.value!==f.pw2.value){err.textContent='Passwords do not match';return}
+  btn.disabled=true;btn.textContent='Connecting';
+  try{
+    cfg={owner,repo,branch:f.branch.value.trim()||'main',path:f.path.value.trim()||'data.json',salt:b2a(crypto.getRandomValues(new Uint8Array(16)))};
+    pw=f.pw.value;token=f.token.value.trim();key=await derive(pw,cfg.salt);
+    const r=await ghGet();
+    if(r){data=await decodeRemote(r.text);sha=r.sha}else{data=blank();sha=null}
+    cfg.tok=await seal(key,cfg.salt,token);lsSet(LS_CFG,JSON.stringify(cfg));
+    enterApp();setSync('ok');if(!sha){dirty=true;push()}
+  }catch(x){err.textContent=x.message;f.classList.add('shake');setTimeout(()=>f.classList.remove('shake'),400)}
+  btn.disabled=false;btn.textContent='Connect';
+};
+
+$('#loginForm').onsubmit=async e=>{
+  e.preventDefault();const f=e.target,btn=$('#loginBtn');$('#loginErr').textContent='';
+  btn.disabled=true;btn.textContent='Unlocking';
+  try{pw=$('#pw').value;key=await derive(pw,cfg.salt);token=await unseal(key,cfg.tok)}
+  catch{$('#loginErr').textContent='Wrong password';f.classList.add('shake');setTimeout(()=>f.classList.remove('shake'),400);btn.disabled=false;btn.textContent='Unlock';key=null;return}
+  btn.disabled=false;btn.textContent='Unlock';$('#pw').value='';
+  let cached=null;try{const c=JSON.parse(lsGet(LS_CACHE));cached=c;data=norm(JSON.parse(await unseal(await derive(pw,c.salt),c)))}catch{data=blank()}
+  enterApp();
+  if(cached&&cached.dirty){dirty=true;setSync('pending');try{const r=await ghGet();sha=r?r.sha:null}catch{}push()}
+  else pull();
+};
+
+$('#resetBtn').onclick=async()=>{
+  if(await choose('Use a different repo?','This removes the saved connection and cached data from this device only. Your GitHub data stays.',[{l:'Reset this device',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){
+    lsDel(LS_CFG);lsDel(LS_CACHE);location.reload();
+  }
+};
+
+function enterApp(){firstPaint=true;render();show('app')}
+function lock(){clearTimeout(saveTimer);if(dirty)cacheLocal();key=null;pw='';token='';data=null;sha=null;openSet.clear();show('login')}
+$('#lockBtn').onclick=()=>{if(saving||dirty){toast('Saving first...');push().then(lock)}else lock()};
+
+/* ---------- calc ---------- */
+const mc=m=>{const paid=m.payments.reduce((s,x)=>s+num(x.amount),0);return{paid,due:num(m.share)-paid}};
+const pc=p=>{let assigned=0,paid=0;p.members.forEach(m=>{assigned+=num(m.share);paid+=mc(m).paid});return{cost:num(p.cost),assigned,paid,remaining:num(p.cost)-paid,unassigned:num(p.cost)-assigned}};
+function split(p){const n=p.members.length;if(!n)return;const c=num(p.cost),each=Math.floor(c*100/n)/100;p.members.forEach((m,i)=>m.share=i===n-1?r2(c-each*(n-1)):each)}
+
+/* ---------- render ---------- */
+function tween(el,to){
+  const from=el._v??0;el._v=to;const t0=performance.now(),D=600;
+  (function step(t){const k=Math.min(1,(t-t0)/D),e=1-Math.pow(1-k,3);el.textContent=fmt(from+(to-from)*e);if(k<1)requestAnimationFrame(step)})(t0);
+}
+function render(){
+  if(!data)return;
+  let cost=0,paid=0,owed=0;
+  data.projects.forEach(p=>{const c=pc(p);cost+=c.cost;paid+=c.paid;p.members.forEach(m=>{const d=mc(m).due;if(d>0)owed+=d})});
+  tween($('#hero'),cost-paid);$('#cur').textContent='('+data.currency+')';
+  $('#s1').textContent=money(cost);$('#s2').textContent=money(paid);$('#s3').textContent=money(owed);
+  const q=$('#search').value.trim().toLowerCase();
+  const list=data.projects.filter(p=>!q||p.name.toLowerCase().includes(q)||p.members.some(m=>m.name.toLowerCase().includes(q)));
+  $('#list').innerHTML=!data.projects.length?'<div class="empty"><div class="dotf" style="font-size:40px">EMPTY</div><div class="lbl" style="margin-top:10px">Tap + to add a project</div></div>'
+    :!list.length?'<div class="empty lbl">No matches</div>':list.map(cardHTML).join('');
+  firstPaint=false;
+}
+function cardHTML(p,i){
+  const c=pc(p),pct=c.cost>0?Math.min(1,Math.max(0,c.paid/c.cost)):(c.paid>0?1:0),filled=Math.round(pct*20);
+  const dots=Array.from({length:20},(_,k)=>`<i class="${k<filled?'f':''}"></i>`).join('');
+  const warn=Math.abs(c.unassigned)>.005&&p.members.length?`<p class="warn">${c.unassigned>0?money(c.unassigned)+' not assigned to anyone':'Shares exceed cost by '+money(-c.unassigned)}</p>`:'';
+  const mem=p.members.map(m=>memberHTML(p,m)).join('')||'<div class="member lbl">No members yet</div>';
+  const P=`data-p="${p.id}"`;
+  return `<article class="card${openSet.has(p.id)?' open':''}${firstPaint?' rise':''}" style="animation-delay:${Math.min(i,8)*50}ms">
+  <div class="chead" data-act="toggle" ${P}>
+    <div class="crow"><span class="cname">${esc(p.name)}</span><span class="lbl">${Math.round(pct*100)}%</span></div>
+    <div class="crow" style="margin-top:4px"><span class="lbl">${p.members.length} member${p.members.length===1?'':'s'}</span><span class="cleft">${c.remaining>.005?money(c.remaining)+' left':c.cost>0?'Fully paid':''}</span></div>
+    <div class="dots">${dots}</div>
+  </div>
+  <div class="cbody"><div><div class="inner">
+    <div class="kv"><div><span class="lbl">Cost</span><b>${money(c.cost)}</b></div><div><span class="lbl">Collected</span><b>${money(c.paid)}</b></div><div><span class="lbl">Left</span><b>${money(c.remaining)}</b></div></div>
+    ${p.note?`<p class="pnote">${esc(p.note)}</p>`:''}${warn}${mem}
+    <div class="chips" style="margin-top:14px">
+      <button class="chip red" data-act="addm" ${P}>+ Member</button>
+      <button class="chip" data-act="split" ${P}>Split equally</button>
+      <button class="chip" data-act="editp" ${P}>Edit</button>
+      <button class="chip dim" data-act="delp" ${P}>Delete</button>
+    </div>
+  </div></div></div></article>`;
+}
+function memberHTML(p,m){
+  const c=mc(m),A=`data-p="${p.id}" data-m="${m.id}"`;
+  const st=c.due>.005?`<span class="due">${money(c.due)} due</span>`:c.due<-.005?`<span class="over">+${money(-c.due)} extra</span>`:`<span class="settled">Settled</span>`;
+  const pays=m.payments.map(x=>`<div class="pay"><span>${esc(x.date)}</span><span>${money(x.amount)}</span><span class="pn">${esc(x.note||'')}</span><button class="x" data-act="delpay" ${A} data-x="${x.id}" aria-label="Delete payment">×</button></div>`).join('');
+  return `<div class="member"><div class="crow"><b>${esc(m.name)}</b>${st}</div>
+    <div class="lbl" style="margin-top:3px">Share ${money(m.share)} / Paid ${money(c.paid)}</div>
+    ${pays?`<div class="pays">${pays}</div>`:''}
+    <div class="chips"><button class="chip red" data-act="pay" ${A}>+ Payment</button><button class="chip" data-act="editm" ${A}>Edit</button><button class="chip dim" data-act="delm" ${A}>Remove</button></div></div>`;
+}
+$('#search').oninput=()=>render();
+
+/* ---------- actions ---------- */
+$('#fab').onclick=async()=>{
+  const v=await form('New project',[
+    {n:'name',l:'Project name',req:1},{n:'cost',l:'Total cost',t:'number',req:1},
+    {n:'members',l:'Members (one per line)',t:'area',ph:'Rahim\nKarim'},
+    {n:'split',l:'Split cost equally among members',t:'check',v:1},{n:'note',l:'Note (optional)'}],'Create');
+  if(!v)return;
+  const p={id:uid(),name:v.name.trim(),cost:num(v.cost),note:v.note.trim(),created:today(),
+    members:v.members.split('\n').map(s=>s.trim()).filter(Boolean).map(n=>({id:uid(),name:n,share:0,payments:[]}))};
+  if(v.split)split(p);
+  data.projects.unshift(p);openSet.add(p.id);changed();toast('Project added');
+};
+$('#list').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const p=data.projects.find(q=>q.id===b.dataset.p),m=p&&p.members.find(q=>q.id===b.dataset.m);
+  switch(b.dataset.act){
+    case 'toggle':{const card=b.closest('.card');card.classList.toggle('open');card.classList.contains('open')?openSet.add(p.id):openSet.delete(p.id);break}
+    case 'addm':{const v=await form('Add member',[{n:'name',l:'Name',req:1},{n:'share',l:'Their share of the cost',t:'number'}],'Add');
+      if(v){p.members.push({id:uid(),name:v.name.trim(),share:num(v.share),payments:[]});changed()}break}
+    case 'split':{if(!p.members.length)return toast('Add members first');
+      if(await choose('Split equally?',`${money(p.cost)} across ${p.members.length} members. Current shares will be replaced.`,[{l:'Split',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){split(p);changed()}break}
+    case 'editp':{const v=await form('Edit project',[{n:'name',l:'Project name',v:p.name,req:1},{n:'cost',l:'Total cost',t:'number',v:p.cost,req:1},{n:'note',l:'Note',v:p.note||''}]);
+      if(v){p.name=v.name.trim();p.cost=num(v.cost);p.note=v.note.trim();changed()}break}
+    case 'delp':{if(await choose('Delete project?',`"${p.name}" and all its payments will be removed.`,[{l:'Delete',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){data.projects=data.projects.filter(q=>q!==p);openSet.delete(p.id);changed()}break}
+    case 'pay':{const due=mc(m).due;const v=await form('Payment from '+m.name,[{n:'amount',l:'Amount',t:'number',v:due>0?r2(due):'',req:1},{n:'date',l:'Date',t:'date',v:today()},{n:'note',l:'Note (optional)'}],'Add payment');
+      if(v&&num(v.amount)){m.payments.push({id:uid(),amount:num(v.amount),date:v.date||today(),note:v.note.trim()});changed();toast('Payment added')}break}
+    case 'editm':{const v=await form('Edit member',[{n:'name',l:'Name',v:m.name,req:1},{n:'share',l:'Share of cost',t:'number',v:m.share}]);
+      if(v){m.name=v.name.trim();m.share=num(v.share);changed()}break}
+    case 'delm':{if(await choose('Remove member?',`${m.name} and their payments will be removed from this project.`,[{l:'Remove',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){p.members=p.members.filter(q=>q!==m);changed()}break}
+    case 'delpay':{if(await choose('Delete payment?','This payment will be removed.',[{l:'Delete',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){m.payments=m.payments.filter(x=>x.id!==b.dataset.x);changed()}break}
+  }
+});
+
+$('#settingsBtn').onclick=async()=>{
+  const v=await choose('Settings',`Connected to ${cfg.owner}/${cfg.repo} (${cfg.branch}/${cfg.path})`,[
+    {l:'Currency: '+data.currency,v:'cur',c:'ghost'},{l:'Reload from GitHub',v:'pull',c:'ghost'},
+    {l:'Download backup',v:'exp',c:'ghost'},{l:'Change password',v:'pw',c:'ghost'},
+    {l:'Remove from this device',v:'out',c:'red'}],true);
+  if(v==='cur'){const r=await form('Currency',[{n:'c',l:'Symbol or code',v:data.currency,req:1}]);if(r){data.currency=r.c.trim();changed()}}
+  if(v==='pull'){if(!dirty||await choose('Discard unsaved changes?','',[{l:'Reload',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}]))pull()}
+  if(v==='exp'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='accounts-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+  if(v==='pw'){const r=await form('Change password',[{n:'a',l:'New password',t:'password',req:1},{n:'b',l:'Repeat',t:'password',req:1}]);
+    if(r){if(r.a!==r.b||r.a.length<4)return toast('Passwords do not match or too short');
+      pw=r.a;cfg.salt=b2a(crypto.getRandomValues(new Uint8Array(16)));key=await derive(pw,cfg.salt);cfg.tok=await seal(key,cfg.salt,token);lsSet(LS_CFG,JSON.stringify(cfg));changed();toast('Password changed. Use it on other devices too.')}}
+  if(v==='out'){if(await choose('Remove from this device?','Your data stays on GitHub. You will need the repo, token and password to connect again.',[{l:'Remove',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){lsDel(LS_CFG);lsDel(LS_CACHE);location.reload()}}
+};
+addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet(null)});
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+
+/* ---------- sheet ---------- */
+let resolver=null;
+function openSheet(html,res){if(resolver)resolver(null);resolver=res;$('#sheet').innerHTML='<div class="grab"></div>'+html;$('#sheetBg').classList.add('on');$('#sheet').classList.add('on')}
+function closeSheet(v){if(!resolver)return;const r=resolver;resolver=null;$('#sheetBg').classList.remove('on');$('#sheet').classList.remove('on');r(v)}
+$('#sheetBg').onclick=()=>closeSheet(null);
+function form(title,fields,ok='Save'){return new Promise(res=>{
+  openSheet(`<h3>${esc(title)}</h3><form id="sf" autocomplete="off">${fields.map(f=>f.t==='check'
+    ?`<label class="check"><input type="checkbox" name="${f.n}" ${f.v?'checked':''}><span></span>${esc(f.l)}</label>`
+    :`<label class="fl"><span class="lbl">${esc(f.l)}</span>${f.t==='area'
+      ?`<textarea class="in" name="${f.n}" rows="3" placeholder="${esc(f.ph||'')}">${esc(f.v??'')}</textarea>`
+      :`<input class="in" name="${f.n}" type="${f.t==='number'?'text':f.t||'text'}" ${f.t==='number'?'inputmode="decimal"':''} value="${esc(f.v??'')}" ${f.req?'required':''}>`}</label>`).join('')}
+    <div class="srow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn red">${esc(ok)}</button></div></form>`,res);
+  const fm=$('#sf');
+  fm.onsubmit=ev=>{ev.preventDefault();const o={};fields.forEach(f=>{const el=fm.elements[f.n];o[f.n]=f.t==='check'?el.checked:el.value});closeSheet(o)};
+  fm.querySelector('[data-x]').onclick=()=>closeSheet(null);
+  if(innerWidth>620)setTimeout(()=>fm.querySelector('input,textarea')?.focus(),300);
+})}
+function choose(title,text,opts,stack){return new Promise(res=>{
+  openSheet(`<h3>${esc(title)}</h3>${text?`<p>${esc(text)}</p>`:''}<div class="${stack?'stack':'srow'}">${opts.map((o,i)=>`<button class="btn ${o.c||''}" data-i="${i}">${esc(o.l)}</button>`).join('')}</div>`,res);
+  $('#sheet').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>closeSheet(opts[b.dataset.i].v));
+})}
+let toastT;function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),2600)}
+
+/* ---------- dot matrix background ---------- */
+(function(){
+  const c=$('#bg'),x=c.getContext('2d'),G=24;let w,h,last=0;
+  function size(){const d=Math.min(2,devicePixelRatio||1);w=innerWidth;h=innerHeight;c.width=w*d;c.height=h*d;x.setTransform(d,0,0,d,0,0)}
+  addEventListener('resize',size);size();
+  function frame(now){
+    requestAnimationFrame(frame);if(now-last<33)return;last=now;const t=now/1000;
+    x.clearRect(0,0,w,h);
+    for(let y=G/2;y<h;y+=G)for(let xx=G/2;xx<w;xx+=G){
+      const v=Math.max(0,Math.sin(xx*.011+y*.007-t*.8)*Math.cos(y*.009-t*.5+xx*.003));
+      x.fillStyle=`rgba(255,255,255,${.05+.17*v})`;x.beginPath();x.arc(xx,y,.8+1.2*v,0,6.283);x.fill();
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+
+/* ---------- start ---------- */
+try{cfg=JSON.parse(lsGet(LS_CFG))}catch{cfg=null}
+show(cfg&&cfg.tok?'login':'setup');
+</script>
+</body>
+</html>
