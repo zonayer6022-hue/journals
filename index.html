@@ -88,6 +88,10 @@ textarea.in{border-radius:20px;resize:vertical}
 .pays{margin-top:8px;display:flex;flex-direction:column;gap:4px}
 .pay{display:flex;gap:10px;align-items:center;font-family:'Space Mono',monospace;font-size:12px;color:var(--dim)}
 .pay .pn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ab>div{border:1px solid var(--line);border-radius:16px;padding:10px 12px}
+.ab b{display:block;font-family:'Space Mono',monospace;font-size:15px;font-weight:400;margin-top:3px}
+.ab b.due{font-size:15px}
 .x{background:none;border:0;color:var(--dim);font-size:16px;cursor:pointer;padding:0 6px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .chip{border:1px solid #333;background:transparent;border-radius:999px;padding:7px 13px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:transform .15s,background .2s}
@@ -402,19 +406,19 @@ function cardHTML(p,i){
   const c=pc(p),pct=c.cost>0?Math.min(1,Math.max(0,c.paid/c.cost)):(c.paid>0?1:0),filled=Math.round(pct*20);
   const dots=Array.from({length:20},(_,k)=>`<i class="${k<filled?'f':''}"></i>`).join('');
   const warn=Math.abs(c.unassigned)>.005&&p.members.length?`<p class="warn">${c.unassigned>0?money(c.unassigned)+' not assigned to anyone':'Shares exceed cost by '+money(-c.unassigned)}</p>`:'';
-  const mem=p.members.map(m=>memberHTML(p,m)).join('')||'<div class="member lbl">No members yet</div>';
+  const mem=p.members.map(m=>memberHTML(p,m)).join('')||'<div class="member lbl">No authors yet</div>';
   const P=`data-p="${p.id}"`;
   return `<article class="card${openSet.has(p.id)?' open':''}${firstPaint?' rise':''}" style="animation-delay:${Math.min(i,8)*50}ms">
   <div class="chead" data-act="toggle" ${P}>
     <div class="crow"><span class="cname">${esc(p.name)}</span><span class="lbl">${Math.round(pct*100)}%</span></div>
-    <div class="crow" style="margin-top:4px"><span class="lbl">${p.members.length} member${p.members.length===1?'':'s'}</span><span class="cleft">${c.remaining>.005?money(c.remaining)+' left':c.cost>0?'Fully paid':''}</span></div>
+    <div class="crow" style="margin-top:4px"><span class="lbl">${p.members.length} author${p.members.length===1?'':'s'}</span><span class="cleft">${c.remaining>.005?money(c.remaining)+' left':c.cost>0?'Fully paid':''}</span></div>
     <div class="dots">${dots}</div>
   </div>
   <div class="cbody"><div><div class="inner">
     <div class="kv"><div><span class="lbl">Cost</span><b>${money(c.cost)}</b></div><div><span class="lbl">Collected</span><b>${money(c.paid)}</b></div><div><span class="lbl">Left</span><b>${money(c.remaining)}</b></div></div>
     ${p.note?`<p class="pnote">${esc(p.note)}</p>`:''}${warn}${mem}
     <div class="chips" style="margin-top:14px">
-      <button class="chip red" data-act="addm" ${P}>+ Member</button>
+      <button class="chip red" data-act="addm" ${P}>+ Author</button>
       <button class="chip" data-act="split" ${P}>Split equally</button>
       <button class="chip" data-act="editp" ${P}>Edit</button>
       <button class="chip dim" data-act="delp" ${P}>Delete</button>
@@ -423,10 +427,13 @@ function cardHTML(p,i){
 }
 function memberHTML(p,m){
   const c=mc(m),A=`data-p="${p.id}" data-m="${m.id}"`;
-  const st=c.due>.005?`<span class="due">${money(c.due)} due</span>`:c.due<-.005?`<span class="over">+${money(-c.due)} extra</span>`:`<span class="settled">Settled</span>`;
+  const st=c.due>.005?`<span class="lbl">Paid ${money(c.paid)}</span>`:c.due<-.005?`<span class="over">+${money(-c.due)} extra</span>`:`<span class="settled">Settled</span>`;
   const pays=m.payments.map(x=>`<div class="pay"><span>${esc(x.date)}</span><span>${money(x.amount)}</span><span class="pn">${esc(x.note||'')}</span><button class="x" data-act="delpay" ${A} data-x="${x.id}" aria-label="Delete payment">×</button></div>`).join('');
   return `<div class="member"><div class="crow"><b>${esc(m.name)}</b>${st}</div>
-    <div class="lbl" style="margin-top:3px">Share ${money(m.share)} / Paid ${money(c.paid)}</div>
+    <div class="ab">
+      <div><span class="lbl">Amount agreed</span><b>${money(m.share)}</b></div>
+      <div><span class="lbl">Remaining</span><b class="${c.due>.005?'due':''}">${money(Math.max(0,c.due))}</b></div>
+    </div>
     ${pays?`<div class="pays">${pays}</div>`:''}
     <div class="chips"><button class="chip red" data-act="pay" ${A}>+ Payment</button><button class="chip" data-act="editm" ${A}>Edit</button><button class="chip dim" data-act="delm" ${A}>Remove</button></div></div>`;
 }
@@ -435,32 +442,37 @@ $('#search').oninput=()=>render();
 /* ---------- actions ---------- */
 $('#fab').onclick=async()=>{
   const v=await form('New project',[
-    {n:'name',l:'Project name',req:1},{n:'cost',l:'Total cost',t:'number',req:1},
-    {n:'members',l:'Members (one per line)',t:'area',ph:'Rahim\nKarim'},
-    {n:'split',l:'Split cost equally among members',t:'check',v:1},{n:'note',l:'Note (optional)'}],'Create');
+    {n:'name',l:'Project name',req:1},{n:'cost',l:'Total cost',t:'number',req:1},{n:'note',l:'Note (optional)'}],'Next: add authors');
   if(!v)return;
-  const p={id:uid(),name:v.name.trim(),cost:num(v.cost),note:v.note.trim(),created:today(),
-    members:v.members.split('\n').map(s=>s.trim()).filter(Boolean).map(n=>({id:uid(),name:n,share:0,payments:[]}))};
-  if(v.split)split(p);
-  data.projects.unshift(p);openSet.add(p.id);changed();toast('Project added');
+  const p={id:uid(),name:v.name.trim(),cost:num(v.cost),note:v.note.trim(),created:today(),members:[]};
+  data.projects.unshift(p);openSet.add(p.id);changed();
+  addAuthors(p);
 };
+async function addAuthors(p){
+  for(let n=1;;n++){
+    const v=await form(`Author ${p.members.length+1} for ${p.name}`,[
+      {n:'name',l:'Author name',req:1},{n:'share',l:'Amount agreed',t:'number'}],'Add author',n>1?'Done':'Cancel');
+    if(!v)break;
+    p.members.push({id:uid(),name:v.name.trim(),share:num(v.share),payments:[]});changed();
+    toast(v.name.trim()+' added');
+  }
+}
 $('#list').addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
   const p=data.projects.find(q=>q.id===b.dataset.p),m=p&&p.members.find(q=>q.id===b.dataset.m);
   switch(b.dataset.act){
     case 'toggle':{const card=b.closest('.card');card.classList.toggle('open');card.classList.contains('open')?openSet.add(p.id):openSet.delete(p.id);break}
-    case 'addm':{const v=await form('Add member',[{n:'name',l:'Name',req:1},{n:'share',l:'Their share of the cost',t:'number'}],'Add');
-      if(v){p.members.push({id:uid(),name:v.name.trim(),share:num(v.share),payments:[]});changed()}break}
-    case 'split':{if(!p.members.length)return toast('Add members first');
-      if(await choose('Split equally?',`${money(p.cost)} across ${p.members.length} members. Current shares will be replaced.`,[{l:'Split',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){split(p);changed()}break}
+    case 'addm':addAuthors(p);break;
+    case 'split':{if(!p.members.length)return toast('Add authors first');
+      if(await choose('Split equally?',`${money(p.cost)} across ${p.members.length} authors. Current agreed amounts will be replaced.`,[{l:'Split',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){split(p);changed()}break}
     case 'editp':{const v=await form('Edit project',[{n:'name',l:'Project name',v:p.name,req:1},{n:'cost',l:'Total cost',t:'number',v:p.cost,req:1},{n:'note',l:'Note',v:p.note||''}]);
       if(v){p.name=v.name.trim();p.cost=num(v.cost);p.note=v.note.trim();changed()}break}
     case 'delp':{if(await choose('Delete project?',`"${p.name}" and all its payments will be removed.`,[{l:'Delete',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){data.projects=data.projects.filter(q=>q!==p);openSet.delete(p.id);changed()}break}
     case 'pay':{const due=mc(m).due;const v=await form('Payment from '+m.name,[{n:'amount',l:'Amount',t:'number',v:due>0?r2(due):'',req:1},{n:'date',l:'Date',t:'date',v:today()},{n:'note',l:'Note (optional)'}],'Add payment');
       if(v&&num(v.amount)){m.payments.push({id:uid(),amount:num(v.amount),date:v.date||today(),note:v.note.trim()});changed();toast('Payment added')}break}
-    case 'editm':{const v=await form('Edit member',[{n:'name',l:'Name',v:m.name,req:1},{n:'share',l:'Share of cost',t:'number',v:m.share}]);
+    case 'editm':{const v=await form('Edit author',[{n:'name',l:'Author name',v:m.name,req:1},{n:'share',l:'Amount agreed',t:'number',v:m.share}]);
       if(v){m.name=v.name.trim();m.share=num(v.share);changed()}break}
-    case 'delm':{if(await choose('Remove member?',`${m.name} and their payments will be removed from this project.`,[{l:'Remove',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){p.members=p.members.filter(q=>q!==m);changed()}break}
+    case 'delm':{if(await choose('Remove author?',`${m.name} and their payments will be removed from this project.`,[{l:'Remove',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){p.members=p.members.filter(q=>q!==m);changed()}break}
     case 'delpay':{if(await choose('Delete payment?','This payment will be removed.',[{l:'Delete',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){m.payments=m.payments.filter(x=>x.id!==b.dataset.x);changed()}break}
   }
 });
@@ -484,13 +496,13 @@ let resolver=null;
 function openSheet(html,res){if(resolver)resolver(null);resolver=res;$('#sheet').innerHTML='<div class="grab"></div>'+html;$('#sheetBg').classList.add('on');$('#sheet').classList.add('on')}
 function closeSheet(v){if(!resolver)return;const r=resolver;resolver=null;$('#sheetBg').classList.remove('on');$('#sheet').classList.remove('on');r(v)}
 $('#sheetBg').onclick=()=>closeSheet(null);
-function form(title,fields,ok='Save'){return new Promise(res=>{
+function form(title,fields,ok='Save',cancel='Cancel'){return new Promise(res=>{
   openSheet(`<h3>${esc(title)}</h3><form id="sf" autocomplete="off">${fields.map(f=>f.t==='check'
     ?`<label class="check"><input type="checkbox" name="${f.n}" ${f.v?'checked':''}><span></span>${esc(f.l)}</label>`
     :`<label class="fl"><span class="lbl">${esc(f.l)}</span>${f.t==='area'
       ?`<textarea class="in" name="${f.n}" rows="3" placeholder="${esc(f.ph||'')}">${esc(f.v??'')}</textarea>`
       :`<input class="in" name="${f.n}" type="${f.t==='number'?'text':f.t||'text'}" ${f.t==='number'?'inputmode="decimal"':''} value="${esc(f.v??'')}" ${f.req?'required':''}>`}</label>`).join('')}
-    <div class="srow"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn red">${esc(ok)}</button></div></form>`,res);
+    <div class="srow"><button type="button" class="btn ghost" data-x>${esc(cancel)}</button><button class="btn red">${esc(ok)}</button></div></form>`,res);
   const fm=$('#sf');
   fm.onsubmit=ev=>{ev.preventDefault();const o={};fields.forEach(f=>{const el=fm.elements[f.n];o[f.n]=f.t==='check'?el.checked:el.value});closeSheet(o)};
   fm.querySelector('[data-x]').onclick=()=>closeSheet(null);
