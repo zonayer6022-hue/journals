@@ -88,7 +88,29 @@ textarea.in{border-radius:20px;resize:vertical}
 .pays{margin-top:8px;display:flex;flex-direction:column;gap:4px}
 .pay{display:flex;gap:10px;align-items:center;font-family:'Space Mono',monospace;font-size:12px;color:var(--dim)}
 .pay .pn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ab{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ab{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+/* built-in keyboard */
+.kb{position:fixed;z-index:30;left:0;right:0;bottom:0;margin:0 auto;max-width:560px;background:#0a0a0a;border-top:1px solid var(--line);padding:8px 5px calc(8px + env(safe-area-inset-bottom));transform:translateY(110%);transition:transform .3s var(--ease);user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.kb.on{transform:none}
+.kr{display:flex;gap:5px;margin-bottom:6px;justify-content:center}
+.kr:last-child{margin-bottom:0}
+.k{flex:1;max-width:58px;height:46px;border:0;border-radius:12px;background:#1c1c1c;color:#fff;font:500 18px 'Space Grotesk',sans-serif;cursor:pointer;padding:0;transition:background .1s,transform .08s}
+.k.p{background:#3a3a3a;transform:scale(.93)}
+.k.w{max-width:none;flex:1.5;font:11px 'Space Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.k.on{background:var(--fg);color:#000}
+.k.sp{flex:5;max-width:none;font:11px 'Space Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.k.ok{background:var(--red);color:#fff;max-width:none;flex:1.5;font:600 13px 'Space Grotesk',sans-serif}
+.kb.num .k{max-width:none;height:54px;font:22px 'Space Mono',monospace}
+.kb.num .k.ok{font:600 15px 'Space Grotesk',sans-serif}
+body.kb-on .sheet{bottom:var(--kbh,0px);max-height:calc(92dvh - var(--kbh,0px))}
+.sheet{transition:transform .4s var(--ease),bottom .3s var(--ease)}
+body.kb-on .auth.show{padding-bottom:calc(var(--kbh,0px) + 20px)}
+body.kb-on .wrap{padding-bottom:calc(var(--kbh,0px) + 40px)}
+@media(min-width:620px){
+ .kb{bottom:16px;border:1px solid var(--line);border-radius:24px}
+ body.kb-on .sheet{bottom:auto}
+ body.kb-on .sheet.on{transform:translateY(calc(-50% - var(--kbh,0px) / 2))}
+}
 .ab>div{border:1px solid var(--line);border-radius:16px;padding:10px 12px}
 .ab b{display:block;font-family:'Space Mono',monospace;font-size:15px;font-weight:400;margin-top:3px}
 .ab b.due{font-size:15px}
@@ -137,14 +159,14 @@ textarea.in{border-radius:20px;resize:vertical}
   <div class="brand"><span class="rec"></span><span class="lbl">First setup</span></div>
   <div class="dotf" style="font-size:44px;line-height:1">ACCOUNTS</div>
   <form id="setupForm" autocomplete="off">
-    <input class="in" name="repo" placeholder="github-username/repo-name" required>
-    <input class="in" name="token" type="password" placeholder="GitHub token" required>
-    <input class="in" name="pw" type="password" placeholder="Create password (8+ characters)" required minlength="8">
-    <input class="in" name="pw2" type="password" placeholder="Repeat password" required minlength="8">
+    <input class="in" name="repo" placeholder="github-username/repo-name" required inputmode="none">
+    <input class="in" name="token" type="password" placeholder="GitHub token" required inputmode="none">
+    <input class="in" name="pw" type="password" placeholder="Create password (8+ characters)" required minlength="8" inputmode="none">
+    <input class="in" name="pw2" type="password" placeholder="Repeat password" required minlength="8" inputmode="none">
     <details><summary>Advanced</summary>
       <div class="stack">
-        <input class="in" name="branch" placeholder="Branch (main)">
-        <input class="in" name="path" placeholder="File path (data.json)">
+        <input class="in" name="branch" placeholder="Branch (main)" inputmode="none">
+        <input class="in" name="path" placeholder="File path (data.json)" inputmode="none">
       </div>
     </details>
     <div class="err" id="setupErr"></div>
@@ -158,7 +180,7 @@ textarea.in{border-radius:20px;resize:vertical}
   <div class="brand"><span class="rec"></span><span class="lbl" id="ldate"></span></div>
   <div class="clock dotf" id="clock">00:00</div>
   <form id="loginForm" autocomplete="off">
-    <input class="in" id="pw" type="password" placeholder="Password" required style="text-align:center">
+    <input class="in" id="pw" type="password" placeholder="Password" required style="text-align:center" inputmode="none">
     <div class="err" id="loginErr"></div>
     <button class="btn" id="loginBtn">Unlock</button>
   </form>
@@ -183,7 +205,7 @@ textarea.in{border-radius:20px;resize:vertical}
       <div class="stat"><div class="lbl">Collected</div><div class="v" id="s2">0</div></div>
       <div class="stat"><div class="lbl">Owed to you</div><div class="v" id="s3">0</div></div>
     </div>
-    <input class="in search" id="search" placeholder="Search projects or people">
+    <input class="in search" id="search" placeholder="Search projects or authors" inputmode="none">
     <div id="list"></div>
   </main>
   <button class="fab" id="fab" aria-label="New project">+</button>
@@ -192,6 +214,7 @@ textarea.in{border-radius:20px;resize:vertical}
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet"></div>
 <div class="toast" id="toast"></div>
+<div class="kb" id="kb"></div>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -206,16 +229,16 @@ const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slic
 const num=v=>{const n=parseFloat(String(v).replace(/,/g,''));return isFinite(n)?n:0};
 const r2=n=>Math.round(n*100)/100;
 const fmt=n=>r2(n).toLocaleString('en-US',{maximumFractionDigits:2});
-const money=n=>(data?.currency||'৳')+' '+fmt(n);
+const money=n=>(n<0?'-$':'$')+fmt(Math.abs(n));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
 const lsGet=k=>{try{return localStorage.getItem(k)}catch{return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch{}};
 const lsDel=k=>{try{localStorage.removeItem(k)}catch{}};
-const blank=()=>({currency:'৳',projects:[]});
+const blank=()=>({currency:'USD',projects:[]});
 function norm(d){
   d=d&&typeof d==='object'?d:blank();
-  d.currency=d.currency||'৳';
+  d.currency='USD';
   d.projects=Array.isArray(d.projects)?d.projects:[];
   d.projects.forEach(p=>{p.id=p.id||uid();p.members=Array.isArray(p.members)?p.members:[];
     p.members.forEach(m=>{m.id=m.id||uid();m.payments=Array.isArray(m.payments)?m.payments:[];m.payments.forEach(x=>x.id=x.id||uid())})});
@@ -394,7 +417,7 @@ function render(){
   if(!data)return;
   let cost=0,paid=0,owed=0;
   data.projects.forEach(p=>{const c=pc(p);cost+=c.cost;paid+=c.paid;p.members.forEach(m=>{const d=mc(m).due;if(d>0)owed+=d})});
-  tween($('#hero'),cost-paid);$('#cur').textContent='('+data.currency+')';
+  tween($('#hero'),cost-paid);$('#cur').textContent='(USD)';
   $('#s1').textContent=money(cost);$('#s2').textContent=money(paid);$('#s3').textContent=money(owed);
   const q=$('#search').value.trim().toLowerCase();
   const list=data.projects.filter(p=>!q||p.name.toLowerCase().includes(q)||p.members.some(m=>m.name.toLowerCase().includes(q)));
@@ -427,11 +450,12 @@ function cardHTML(p,i){
 }
 function memberHTML(p,m){
   const c=mc(m),A=`data-p="${p.id}" data-m="${m.id}"`;
-  const st=c.due>.005?`<span class="lbl">Paid ${money(c.paid)}</span>`:c.due<-.005?`<span class="over">+${money(-c.due)} extra</span>`:`<span class="settled">Settled</span>`;
+  const st=c.due>.005?'':c.due<-.005?`<span class="over">+${money(-c.due)} extra</span>`:`<span class="settled">Settled</span>`;
   const pays=m.payments.map(x=>`<div class="pay"><span>${esc(x.date)}</span><span>${money(x.amount)}</span><span class="pn">${esc(x.note||'')}</span><button class="x" data-act="delpay" ${A} data-x="${x.id}" aria-label="Delete payment">×</button></div>`).join('');
   return `<div class="member"><div class="crow"><b>${esc(m.name)}</b>${st}</div>
     <div class="ab">
-      <div><span class="lbl">Amount agreed</span><b>${money(m.share)}</b></div>
+      <div><span class="lbl">Agreed</span><b>${money(m.share)}</b></div>
+      <div><span class="lbl">Paid</span><b>${money(c.paid)}</b></div>
       <div><span class="lbl">Remaining</span><b class="${c.due>.005?'due':''}">${money(Math.max(0,c.due))}</b></div>
     </div>
     ${pays?`<div class="pays">${pays}</div>`:''}
@@ -448,13 +472,29 @@ $('#fab').onclick=async()=>{
   data.projects.unshift(p);openSet.add(p.id);changed();
   addAuthors(p);
 };
+/* Agreed / Paid / Remaining: type Paid or Remaining, the other fills itself */
+const authorFields=(m)=>[
+  {n:'name',l:'Author name',req:1,v:m?m.name:''},
+  {n:'share',l:'Amount agreed ($)',t:'number',v:m?m.share:''},
+  {n:'paid',l:'Paid ($)',t:'number',v:m?r2(mc(m).paid):''},
+  {n:'rem',l:'Remaining ($)',t:'number',v:m?r2(mc(m).due):''}];
+function calcHook(fm){
+  const A=fm.elements.share,P=fm.elements.paid,R=fm.elements.rem;let last='paid';
+  fm.addEventListener('input',e=>{
+    if(e.target===P)last='paid';else if(e.target===R)last='rem';
+    if(A.value==='')return;
+    if(last==='paid')R.value=P.value===''?'':String(r2(num(A.value)-num(P.value)));
+    else P.value=R.value===''?'':String(r2(num(A.value)-num(R.value)));
+  });
+}
+const paidFrom=v=>v.paid!==''?num(v.paid):v.rem!==''?r2(num(v.share)-num(v.rem)):0;
 async function addAuthors(p){
   for(let n=1;;n++){
-    const v=await form(`Author ${p.members.length+1} for ${p.name}`,[
-      {n:'name',l:'Author name',req:1},{n:'share',l:'Amount agreed',t:'number'}],'Add author',n>1?'Done':'Cancel');
+    const v=await form(`Author ${p.members.length+1} for ${p.name}`,authorFields(),'Add author',n>1?'Done':'Cancel',calcHook);
     if(!v)break;
-    p.members.push({id:uid(),name:v.name.trim(),share:num(v.share),payments:[]});changed();
-    toast(v.name.trim()+' added');
+    const m={id:uid(),name:v.name.trim(),share:num(v.share),payments:[]},paid=paidFrom(v);
+    if(paid)m.payments.push({id:uid(),amount:paid,date:today(),note:'Paid at entry'});
+    p.members.push(m);changed();toast(m.name+' added');
   }
 }
 $('#list').addEventListener('click',async e=>{
@@ -470,8 +510,11 @@ $('#list').addEventListener('click',async e=>{
     case 'delp':{if(await choose('Delete project?',`"${p.name}" and all its payments will be removed.`,[{l:'Delete',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){data.projects=data.projects.filter(q=>q!==p);openSet.delete(p.id);changed()}break}
     case 'pay':{const due=mc(m).due;const v=await form('Payment from '+m.name,[{n:'amount',l:'Amount',t:'number',v:due>0?r2(due):'',req:1},{n:'date',l:'Date',t:'date',v:today()},{n:'note',l:'Note (optional)'}],'Add payment');
       if(v&&num(v.amount)){m.payments.push({id:uid(),amount:num(v.amount),date:v.date||today(),note:v.note.trim()});changed();toast('Payment added')}break}
-    case 'editm':{const v=await form('Edit author',[{n:'name',l:'Author name',v:m.name,req:1},{n:'share',l:'Amount agreed',t:'number',v:m.share}]);
-      if(v){m.name=v.name.trim();m.share=num(v.share);changed()}break}
+    case 'editm':{const v=await form('Edit author',authorFields(m),'Save','Cancel',calcHook);
+      if(v){m.name=v.name.trim();m.share=num(v.share);
+        const diff=r2(paidFrom(v)-mc(m).paid);
+        if(Math.abs(diff)>.005)m.payments.push({id:uid(),amount:diff,date:today(),note:'Adjusted'});
+        changed()}break}
     case 'delm':{if(await choose('Remove author?',`${m.name} and their payments will be removed from this project.`,[{l:'Remove',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){p.members=p.members.filter(q=>q!==m);changed()}break}
     case 'delpay':{if(await choose('Delete payment?','This payment will be removed.',[{l:'Delete',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}])){m.payments=m.payments.filter(x=>x.id!==b.dataset.x);changed()}break}
   }
@@ -479,10 +522,9 @@ $('#list').addEventListener('click',async e=>{
 
 $('#settingsBtn').onclick=async()=>{
   const v=await choose('Settings',`Connected to ${cfg.owner}/${cfg.repo} (${cfg.branch}/${cfg.path})`,[
-    {l:'Currency: '+data.currency,v:'cur',c:'ghost'},{l:'Reload from GitHub',v:'pull',c:'ghost'},
+    {l:'Reload from GitHub',v:'pull',c:'ghost'},
     {l:'Download backup',v:'exp',c:'ghost'},{l:'Change password',v:'pw',c:'ghost'},
     {l:'Remove from this device',v:'out',c:'red'}],true);
-  if(v==='cur'){const r=await form('Currency',[{n:'c',l:'Symbol or code',v:data.currency,req:1}]);if(r){data.currency=r.c.trim();changed()}}
   if(v==='pull'){if(!dirty||await choose('Discard unsaved changes?','',[{l:'Reload',v:1,c:'red'},{l:'Cancel',v:0,c:'ghost'}]))pull()}
   if(v==='exp'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='accounts-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
   if(v==='pw')changePw();
@@ -494,20 +536,76 @@ addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='
 /* ---------- sheet ---------- */
 let resolver=null;
 function openSheet(html,res){if(resolver)resolver(null);resolver=res;$('#sheet').innerHTML='<div class="grab"></div>'+html;$('#sheetBg').classList.add('on');$('#sheet').classList.add('on')}
-function closeSheet(v){if(!resolver)return;const r=resolver;resolver=null;$('#sheetBg').classList.remove('on');$('#sheet').classList.remove('on');r(v)}
+function closeSheet(v){if(!resolver)return;if($('#sheet').contains(document.activeElement))document.activeElement.blur();const r=resolver;resolver=null;$('#sheetBg').classList.remove('on');$('#sheet').classList.remove('on');r(v)}
 $('#sheetBg').onclick=()=>closeSheet(null);
-function form(title,fields,ok='Save',cancel='Cancel'){return new Promise(res=>{
+function form(title,fields,ok='Save',cancel='Cancel',hook){return new Promise(res=>{
   openSheet(`<h3>${esc(title)}</h3><form id="sf" autocomplete="off">${fields.map(f=>f.t==='check'
     ?`<label class="check"><input type="checkbox" name="${f.n}" ${f.v?'checked':''}><span></span>${esc(f.l)}</label>`
     :`<label class="fl"><span class="lbl">${esc(f.l)}</span>${f.t==='area'
       ?`<textarea class="in" name="${f.n}" rows="3" placeholder="${esc(f.ph||'')}">${esc(f.v??'')}</textarea>`
-      :`<input class="in" name="${f.n}" type="${f.t==='number'?'text':f.t||'text'}" ${f.t==='number'?'inputmode="decimal"':''} value="${esc(f.v??'')}" ${f.req?'required':''}>`}</label>`).join('')}
+      :`<input class="in" name="${f.n}" type="${f.t==='number'?'text':f.t||'text'}" ${f.t==='number'?'data-kb="num"':''} ${f.t==='date'?'':'inputmode="none"'} value="${esc(f.v??'')}" ${f.req?'required':''}>`}</label>`).join('')}
     <div class="srow"><button type="button" class="btn ghost" data-x>${esc(cancel)}</button><button class="btn red">${esc(ok)}</button></div></form>`,res);
   const fm=$('#sf');
   fm.onsubmit=ev=>{ev.preventDefault();const o={};fields.forEach(f=>{const el=fm.elements[f.n];o[f.n]=f.t==='check'?el.checked:el.value});closeSheet(o)};
   fm.querySelector('[data-x]').onclick=()=>closeSheet(null);
-  if(innerWidth>620)setTimeout(()=>fm.querySelector('input,textarea')?.focus(),300);
+  if(hook)hook(fm);
+  setTimeout(()=>fm.querySelector('input:not([type=checkbox]),textarea')?.focus(),320);
 })}
+
+/* ---------- built-in keyboard ---------- */
+const kb=$('#kb'),KB={t:null,mode:'abc',shift:false};
+const KSEL='input:not([type=checkbox]):not([type=date]),textarea';
+function kbRender(){
+  const t=KB.t,isNum=t&&t.dataset.kb==='num',s=KB.shift,up=x=>s?x.toUpperCase():x;
+  let rows;
+  if(isNum)rows=[['1','2','3'],['4','5','6'],['7','8','9'],['.','0',{k:'⌫'}],[{k:'↵',l:'Done',c:'ok'}]];
+  else if(KB.mode==='abc')rows=[[...'qwertyuiop'].map(up),[...'asdfghjkl'].map(up),
+    [{k:'⇧',c:'w'+(s?' on':'')},...[...'zxcvbnm'].map(up),{k:'⌫',c:'w'}],
+    [{k:'123',c:'w'},{k:' ',l:'space',c:'sp'},'.',{k:'↵',l:'Go',c:'ok'}]];
+  else rows=[[...'1234567890'],[...'-/@#&_():;'],['*','.',',','?','!',"'",'+','=',{k:'⌫',c:'w'}],
+    [{k:'abc',l:'ABC',c:'w'},{k:' ',l:'space',c:'sp'},{k:'↵',l:'Go',c:'ok'}]];
+  kb.className='kb on'+(isNum?' num':'');
+  kb.innerHTML=rows.map(r=>`<div class="kr">${r.map(x=>{const o=typeof x==='string'?{k:x}:x;return`<button type="button" class="k ${o.c||''}" data-k="${esc(o.k)}">${esc(o.l??o.k)}</button>`}).join('')}</div>`).join('');
+  document.documentElement.style.setProperty('--kbh',(kb.offsetHeight+(innerWidth>=620?16:0))+'px');
+}
+function kbIns(s){const t=KB.t,a=t.selectionStart??t.value.length,b=t.selectionEnd??a;t.value=t.value.slice(0,a)+s+t.value.slice(b);try{t.setSelectionRange(a+s.length,a+s.length)}catch{}t.dispatchEvent(new Event('input',{bubbles:true}))}
+function kbDel(){const t=KB.t;let a=t.selectionStart??t.value.length,b=t.selectionEnd??a;if(a===b){if(!a)return;a--}t.value=t.value.slice(0,a)+t.value.slice(b);try{t.setSelectionRange(a,a)}catch{}t.dispatchEvent(new Event('input',{bubbles:true}))}
+function kbEnter(){
+  const t=KB.t,f=t.form;if(!f){t.blur();return}
+  const ins=[...f.querySelectorAll(KSEL)].filter(i=>i.offsetParent!==null),i=ins.indexOf(t);
+  if(i>-1&&i<ins.length-1)ins[i+1].focus();else f.requestSubmit();
+}
+function press(k){
+  if(!KB.t)return;
+  if(k==='⇧'){KB.shift=!KB.shift;return kbRender()}
+  if(k==='123'){KB.mode='sym';return kbRender()}
+  if(k==='abc'){KB.mode='abc';return kbRender()}
+  if(k==='⌫')return kbDel();
+  if(k==='↵')return kbEnter();
+  if(KB.t.dataset.kb==='num'&&k==='.'&&KB.t.value.includes('.'))return;
+  kbIns(k);if(KB.shift){KB.shift=false;kbRender()}
+}
+let rep=null;
+const stopRep=()=>{clearTimeout(rep);clearInterval(rep);rep=null};
+kb.addEventListener('mousedown',e=>e.preventDefault());
+kb.addEventListener('pointerdown',e=>{
+  e.preventDefault();const b=e.target.closest('[data-k]');if(!b)return;
+  b.classList.add('p');setTimeout(()=>b.classList.remove('p'),130);
+  const k=b.dataset.k;press(k);
+  if(k==='⌫'){stopRep();rep=setTimeout(()=>{rep=setInterval(()=>press('⌫'),60)},400)}
+});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>kb.addEventListener(ev,stopRep));
+document.addEventListener('focusin',e=>{
+  const t=e.target;if(!t.matches||!t.matches(KSEL))return;
+  t.inputMode='none';
+  if(KB.t!==t){KB.mode='abc';KB.shift=false}
+  KB.t=t;kbRender();document.body.classList.add('kb-on');
+  setTimeout(()=>t.scrollIntoView({block:'center',behavior:'smooth'}),80);
+});
+document.addEventListener('focusout',()=>setTimeout(()=>{
+  const a=document.activeElement;
+  if(!a||!a.matches||!a.matches(KSEL)){KB.t=null;stopRep();kb.classList.remove('on');document.body.classList.remove('kb-on')}
+},0));
 function choose(title,text,opts,stack){return new Promise(res=>{
   openSheet(`<h3>${esc(title)}</h3>${text?`<p>${esc(text)}</p>`:''}<div class="${stack?'stack':'srow'}">${opts.map((o,i)=>`<button class="btn ${o.c||''}" data-i="${i}">${esc(o.l)}</button>`).join('')}</div>`,res);
   $('#sheet').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>closeSheet(opts[b.dataset.i].v));
